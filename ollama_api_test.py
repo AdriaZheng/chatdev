@@ -1,37 +1,44 @@
+from flask import Flask, request, jsonify
 import requests
 import json
 
-# Load configuration from config.json
-with open('config.json') as config_file:
-    config_content = config_file.read()
-    print("Config file content (raw):")
-    print(repr(config_content))  # Use repr to show hidden characters
-    config = json.loads(config_content)
+app = Flask(__name__)
 
+def load_config(config_file_path='config.json'):
+    with open(config_file_path) as config_file:
+        return json.load(config_file)
+
+config = load_config()
 API_KEY = config['api_key']
-API_ENDPOINT = config['api_endpoint'].strip()
+API_ENDPOINT = config['api_endpoint']
 
-# Define the request data
-data = {
-    "model": "llama2",
-    "prompt": "Why is the sky so blue?",
-    "stream": False
-}
+@app.route('/')
+def index():
+    return "Welcome to the Ollama API!"
 
-# Define the headers
-headers = {
-    'Authorization': f'Bearer {API_KEY}',
-    'Content-Type': 'application/json'
-}
+@app.route('/generate', methods=['POST'])
+def generate():
+    data = request.get_json()
+    prompt = data.get('prompt', '')
+    model = data.get('model', 'llama2')
 
-# Make the request
-response = requests.post(API_ENDPOINT, headers=headers, data=json.dumps(data))
+    headers = {
+        'Authorization': f'Bearer {API_KEY}',
+        'Content-Type': 'application/json'
+    }
 
-# Check the response status
-if response.status_code == 200:
-    response_text = response.text
-    data = json.loads(response_text)
-    actual_response = data.get("response")
-    print(actual_response)
-else:
-    print("Error:", response.status_code, response.text)
+    request_data = {
+        "model": model,
+        "prompt": prompt,
+        "stream": False
+    }
+
+    response = requests.post(API_ENDPOINT, headers=headers, data=json.dumps(request_data))
+
+    if response.status_code == 200:
+        return jsonify(response.json())
+    else:
+        return jsonify({"error": response.text}), response.status_code
+
+if __name__ == '__main__':
+    app.run(debug=True)
